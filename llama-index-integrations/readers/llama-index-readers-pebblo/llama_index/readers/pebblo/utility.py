@@ -20,12 +20,12 @@ file_reader = [
     "DocxReader",
     "PDFReader"
 ]
-dir_loader = ["SimpleDirectoryReader"]
+dir_reader = ["SimpleDirectoryReader"]
 in_memory = []
 
-READER_TYPE_MAPPING = {"file": file_reader, "dir": dir_loader, "in-memory": in_memory}
+READER_TYPE_MAPPING = {"file": file_reader, "dir": dir_reader, "in-memory": in_memory}
 
-SUPPORTED_LOADERS = (*file_reader, *dir_loader, *in_memory)
+SUPPORTED_LOADERS = (*file_reader, *dir_reader, *in_memory)
 
 logger = logging.getLogger(__name__)
 
@@ -146,8 +146,8 @@ def get_reader_type(reader: str) -> str:
     Returns:
         str: One of the loader type among, file/dir/in-memory.
     """
-    for _, reader in READER_TYPE_MAPPING.items():
-        if reader in reader:
+    for _, readers in READER_TYPE_MAPPING.items():
+        if reader in readers:
             return reader
     return "unknown"
 
@@ -165,6 +165,8 @@ def get_reader_full_path(reader: BaseReader) -> str:
         )
         return location
     loader_dict = reader.__dict__
+    reader_name = str(type(reader)).split(".")[-1].split("'")[0]
+    reader_type = get_reader_type(reader_name)
     try:
         if "path" in loader_dict:
             location = loader_dict["path"]

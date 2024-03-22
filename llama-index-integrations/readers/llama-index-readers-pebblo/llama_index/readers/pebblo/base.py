@@ -47,13 +47,11 @@ class PebbloSafeReader(BaseReader):
         self.reader = llama_reader
         self.owner = owner
         self.description = description
+        reader_name = str(type(self.reader)).split(".")[-1].split("'")[0]
+        self.source_type = get_reader_type(reader_name)
         self.source_path = get_reader_full_path(self.reader)
         self.source_owner = PebbloSafeReader.get_file_owner_from_path(self.source_path)
         self.docs: List[Document] = []
-        reader_name = str(type(self.reader)).split(".")[-1].split("'")[0]
-        self.source_type = get_reader_type(reader_name)
-        #ToDo: 
-        self.source_type = "file"
         self.source_path_size = self.get_source_size(self.source_path)
         self.source_aggr_size = 0
 
@@ -77,8 +75,8 @@ class PebbloSafeReader(BaseReader):
         Returns:
             list: Documents fetched from load method of the wrapped `reader`.
         """
-        self.docs = self.reader.load_data(file=None, **kwargs)
-        self._send_reader_doc(loading_end=True)
+        self.docs = self.reader.load_data(**kwargs)
+        self._send_reader_doc(loading_end=True, **kwargs)
         return self.docs
 
     @classmethod
@@ -89,7 +87,12 @@ class PebbloSafeReader(BaseReader):
     def set_reader_sent(cls) -> None:
         cls._reader_sent = True
 
-    def _send_reader_doc(self, loading_end: bool = False) -> None:
+    def _get_base_path(self, reader, **kwargs):
+        """
+        Get full path for 
+        """
+
+    def _send_reader_doc(self, loading_end: bool = False, **kwargs) -> None:
         """Send documents fetched from reader to pebblo-server. Internal method.
 
         Args:
@@ -97,18 +100,23 @@ class PebbloSafeReader(BaseReader):
                                         loading by reader. Defaults to False.
         """
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
-        doc_content = [doc.dict() for doc in self.docs]
+        doc_content = [doc.to_langchain_format().dict() for doc in self.docs]
         docs = []
         for doc in doc_content:
-            doc_source_path = get_full_path(doc.get("metadata", {}).get("filename"))
+            doc_source_path = "Unknown"
+            if self.source_type == "SimpleDirectoryReader":
+                input_dir = str(self.reader.input_dir)
+                if input_dir:
+                    doc_source_path = input_dir
+            else:
+                doc_source_path = get_full_path(str(kwargs.get("file")))
+
             doc_source_owner = PebbloSafeReader.get_file_owner_from_path(
+
                 doc_source_path
             )
-            #ToDo:
-            doc_source_path = "/Users/yograjshisode/Documents/pebblo/langchain_poc/sensitive_data1.csv"
-        
             doc_source_size = self.get_source_size(doc_source_path)
-            page_content = str(doc.get("text"))
+            page_content = str(doc.get("page_content"))
             page_content_size = self.calculate_content_size(page_content)
             self.source_aggr_size += page_content_size
             docs.append(
@@ -124,7 +132,6 @@ class PebbloSafeReader(BaseReader):
                     ),
                 }
             )
-        #ToDo: Set source path
         self.reader_details["source_path"] = doc_source_path
         payload: Dict[str, Any] = {
             "name": self.app_name,
@@ -141,7 +148,6 @@ class PebbloSafeReader(BaseReader):
             if "loader_details" in payload:
                 payload["loader_details"]["source_aggr_size"] = self.source_aggr_size
         payload = Doc(**payload).dict(exclude_unset=True)
-        print("payload=====", payload)
         load_doc_url = f"{CLASSIFIER_URL}/v1/loader/doc"
         try:
             resp = requests.post(
