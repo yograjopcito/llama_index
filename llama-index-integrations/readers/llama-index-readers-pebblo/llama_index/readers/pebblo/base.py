@@ -1,10 +1,10 @@
-"""Pebblo's safe dataloader is a wrapper for document loaders"""
+"""Pebblo's safe dataloader is a wrapper for document loaders."""
 
 import logging
 import os
 import uuid
 from http import HTTPStatus
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, List
 
 import requests
 from llama_index.core import Document
@@ -19,7 +19,7 @@ from llama_index.readers.pebblo.utility import (
     get_full_path,
     get_runtime,
     get_reader_full_path,
-    get_reader_type
+    get_reader_type,
 )
 
 logger = logging.getLogger(__name__)
@@ -87,11 +87,6 @@ class PebbloSafeReader(BaseReader):
     def set_reader_sent(cls) -> None:
         cls._reader_sent = True
 
-    def _get_base_path(self, reader, **kwargs):
-        """
-        Get full path for 
-        """
-
     def _send_reader_doc(self, loading_end: bool = False, **kwargs) -> None:
         """Send documents fetched from reader to pebblo-server. Internal method.
 
@@ -112,7 +107,6 @@ class PebbloSafeReader(BaseReader):
                 doc_source_path = get_full_path(str(kwargs.get("file")))
 
             doc_source_owner = PebbloSafeReader.get_file_owner_from_path(
-
                 doc_source_path
             )
             doc_source_size = self.get_source_size(doc_source_path)
@@ -183,11 +177,9 @@ class PebbloSafeReader(BaseReader):
         Returns:
             int: Size of string in bytes.
         """
-
         # Encode the content to bytes using UTF-8
         encoded_content = page_content.encode("utf-8")
-        size = len(encoded_content)
-        return size
+        return len(encoded_content)
 
     def _send_discover(self) -> None:
         """Send app discovery payload to pebblo-server. Internal method."""
@@ -224,7 +216,7 @@ class PebbloSafeReader(BaseReader):
             App: App details.
         """
         framework, runtime = get_runtime()
-        app = App(
+        return App(
             name=self.app_name,
             owner=self.owner,
             description=self.description,
@@ -233,7 +225,6 @@ class PebbloSafeReader(BaseReader):
             framework=framework,
             plugin_version=PLUGIN_VERSION,
         )
-        return app
 
     @staticmethod
     def get_file_owner_from_path(file_path: str) -> str:

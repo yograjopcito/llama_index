@@ -9,17 +9,14 @@ from typing import Optional, Tuple
 from pydantic.v1.main import BaseModel
 
 from llama_index.core.readers.base import BaseReader
+
 logger = logging.getLogger(__name__)
 
 PLUGIN_VERSION = "0.1.0"
 CLASSIFIER_URL = os.getenv("PEBBLO_CLASSIFIER_URL", "http://localhost:8000")
 
 # Supported loaders for Pebblo safe data loading
-file_reader = [
-    "CSVReader",
-    "DocxReader",
-    "PDFReader"
-]
+file_reader = ["CSVReader", "DocxReader", "PDFReader"]
 dir_reader = ["SimpleDirectoryReader"]
 in_memory = []
 
@@ -129,7 +126,7 @@ def get_full_path(path: str) -> str:
     if (
         not path
         or ("://" in path)
-        or ("/" == path[0])
+        or (path[0] == "/")
         or (path in ["unknown", "-", "in-memory"])
     ):
         return path
@@ -146,10 +143,11 @@ def get_reader_type(reader: str) -> str:
     Returns:
         str: One of the loader type among, file/dir/in-memory.
     """
-    for _, readers in READER_TYPE_MAPPING.items():
+    for readers in READER_TYPE_MAPPING.values():
         if reader in readers:
             return reader
     return "unknown"
+
 
 def get_reader_full_path(reader: BaseReader) -> str:
     """Return absolute source path of source of reader based on the
@@ -184,9 +182,8 @@ def get_runtime() -> Tuple[Framework, Runtime]:
         Tuple[Framework, Runtime]: Framework and Runtime for the current app instance.
     """
     from importlib.metadata import version
-    framework = Framework(
-        name="llama", version=version("llama_index")
-    )
+
+    framework = Framework(name="llama", version=version("llama_index"))
     uname = platform.uname()
 
     runtime = Runtime(
@@ -196,7 +193,7 @@ def get_runtime() -> Tuple[Framework, Runtime]:
         os=uname.system,
         os_version=uname.version,
         ip=get_ip(),
-        language= "unknown",
+        language="unknown",
         language_version=platform.python_version(),
     )
     if "Darwin" in runtime.os:
@@ -209,7 +206,7 @@ def get_runtime() -> Tuple[Framework, Runtime]:
 
 
 def get_ip() -> str:
-    """Fetch local runtime ip address
+    """Fetch local runtime IP address.
 
     Returns:
         str: IP address
