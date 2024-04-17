@@ -143,13 +143,13 @@ def get_reader_type(reader: str) -> str:
     Returns:
         str: One of the loader type among, file/dir/in-memory.
     """
-    for readers in READER_TYPE_MAPPING.values():
+    for reader_type, readers in READER_TYPE_MAPPING.items():
         if reader in readers:
-            return reader
+            return reader_type
     return "unknown"
 
 
-def get_reader_full_path(reader: BaseReader) -> str:
+def get_reader_full_path(reader: BaseReader, reader_type: str, **kwargs) -> str:
     """Return absolute source path of source of reader based on the
     keys present in Document object from reader.
 
@@ -163,13 +163,14 @@ def get_reader_full_path(reader: BaseReader) -> str:
         )
         return location
     loader_dict = reader.__dict__
-    reader_name = str(type(reader)).split(".")[-1].split("'")[0]
-    reader_type = get_reader_type(reader_name)
     try:
-        if "path" in loader_dict:
-            location = loader_dict["path"]
-        elif "file_path" in loader_dict:
-            location = loader_dict["file_path"]
+        if reader_type == "SimpleDirectoryReader":
+            if loader_dict.get("input_dir", None):
+                location = loader_dict.get("input_dir")
+        elif kwargs.get("file", None):
+            location = kwargs.get("file")
+        elif kwargs.get("input_file", None):
+            location = kwargs.get("input_file")
     except Exception:
         pass
     return get_full_path(str(location))

@@ -16,7 +16,6 @@ from llama_index.readers.pebblo.utility import (
     PLUGIN_VERSION,
     App,
     Doc,
-    get_full_path,
     get_runtime,
     get_reader_full_path,
     get_reader_type,
@@ -47,24 +46,10 @@ class PebbloSafeReader(BaseReader):
         self.reader = llama_reader
         self.owner = owner
         self.description = description
-        reader_name = str(type(self.reader)).split(".")[-1].split("'")[0]
-        self.source_type = get_reader_type(reader_name)
-        self.source_path = get_reader_full_path(self.reader)
-        self.source_owner = PebbloSafeReader.get_file_owner_from_path(self.source_path)
+        self.reader_name = str(type(self.reader)).split(".")[-1].split("'")[0]
+        self.source_type = get_reader_type(self.reader_name)
         self.docs: List[Document] = []
-        self.source_path_size = self.get_source_size(self.source_path)
         self.source_aggr_size = 0
-
-        self.reader_details = {
-            "loader": reader_name,
-            "source_path": self.source_path,
-            "source_type": self.source_type,
-            **(
-                {"source_path_size": str(self.source_path_size)}
-                if self.source_path_size > 0
-                else {}
-            ),
-        }
         # generate app
         self.app = self._get_app_details()
         self._send_discover()
@@ -87,6 +72,21 @@ class PebbloSafeReader(BaseReader):
     def set_reader_sent(cls) -> None:
         cls._reader_sent = True
 
+    def _set_reader_details(self, **kwargs) -> None:
+        self.source_path = get_reader_full_path(self.reader, self.reader_name, **kwargs)
+        self.source_owner = PebbloSafeReader.get_file_owner_from_path(self.source_path)
+        self.source_path_size = self.get_source_size(self.source_path)
+        self.reader_details = {
+            "loader": self.reader_name,
+            "source_path": self.source_path,
+            "source_type": self.source_type,
+            **(
+                {"source_path_size": str(self.source_path_size)}
+                if self.source_path_size > 0
+                else {}
+            ),
+        }
+
     def _send_reader_doc(self, loading_end: bool = False, **kwargs) -> None:
         """Send documents fetched from reader to pebblo-server. Internal method.
 
@@ -97,36 +97,24 @@ class PebbloSafeReader(BaseReader):
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
         doc_content = [doc.to_langchain_format().dict() for doc in self.docs]
         docs = []
+        self._set_reader_details(**kwargs)
         for doc in doc_content:
-            doc_source_path = "Unknown"
-            if self.source_type == "SimpleDirectoryReader":
-                input_dir = str(self.reader.input_dir)
-                if input_dir:
-                    doc_source_path = input_dir
-            else:
-                doc_source_path = get_full_path(str(kwargs.get("file")))
-
-            doc_source_owner = PebbloSafeReader.get_file_owner_from_path(
-                doc_source_path
-            )
-            doc_source_size = self.get_source_size(doc_source_path)
             page_content = str(doc.get("page_content"))
             page_content_size = self.calculate_content_size(page_content)
             self.source_aggr_size += page_content_size
             docs.append(
                 {
                     "doc": page_content,
-                    "source_path": doc_source_path,
+                    "source_path": self.source_path,
                     "last_modified": doc.get("metadata", {}).get("last_modified", None),
-                    "file_owner": doc_source_owner,
+                    "file_owner": self.source_owner,
                     **(
-                        {"source_path_size": doc_source_size}
-                        if doc_source_size is not None
+                        {"source_path_size": self.source_path_size}
+                        if self.source_path_size is not None
                         else {}
                     ),
                 }
             )
-        self.reader_details["source_path"] = doc_source_path
         payload: Dict[str, Any] = {
             "name": self.app_name,
             "owner": self.owner,
